@@ -42,6 +42,12 @@
     //#if MC<11400
     //$$ "MixinNetworkDispatcher",
     //#endif
+    //#if MC<10900
+    //$$ "MixinServerboundEntity",
+    //$$ "MixinServerboundKeyBinding",
+    //$$ "MixinServerboundMinecraft",
+    //$$ "MixinServerboundNetworkManager",
+    //#endif
     "MixinRenderGlobal"
   ],
   "compatibilityLevel": "JAVA_8",

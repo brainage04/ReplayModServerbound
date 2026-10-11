@@ -250,6 +250,7 @@ public class RecordingEventHandler extends EventRegistrations {
             }
 
             packetListener.save(packet);
+            packetListener.saveServerboundTickStart();
 
             //HEAD POS
             int rotationYawHead = ((int)(player.headYaw * 256.0F / 360.0F));

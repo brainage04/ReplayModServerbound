@@ -85,6 +85,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -124,8 +125,12 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
 
     private final long startTime;
     private long lastSentPacket;
-    private long timePassedWhilePaused;
+    private volatile long timePassedWhilePaused; // also read by the threads sending serverbound packets
     private volatile boolean serverWasPaused;
+
+    /** The client's packets and input; null on versions that do not capture them. */
+    private final ServerboundStream serverbound;
+    private boolean serverboundTickOpen;
 
     /**
      * Used to keep track of the last metadata save job submitted to the save service and
@@ -142,6 +147,13 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
         this.resourcePackRecorder = new ResourcePackRecorder(replayFile);
         this.packetOutputStream = replayFile.writePacketData();
         this.startTime = metaData.getDate();
+
+        //#if MC<10900
+        //$$ this.serverbound = new ServerboundStream(replayFile.write(ServerboundStream.ENTRY));
+        //$$ saveServerbound(NOW, ServerboundStream.header(MCVer.getProtocolVersion(), "ReplayMod v" + ReplayMod.instance.getVersion()));
+        //#else
+        this.serverbound = null;
+        //#endif
 
         saveMetaData();
     }
@@ -231,6 +243,64 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
             });
         } catch(Exception e) {
             logger.error("Writing packet:", e);
+        }
+    }
+
+    public Channel getChannel() {
+        return channel;
+    }
+
+    /**
+     * Records a packet the client sends, when the game sends it. Any thread: keep-alive answers are sent from the
+     * network thread.
+     */
+    public void saveServerboundPacket(int state, int packetId, byte[] body, int length) {
+        if (serverbound == null) return;
+        saveServerbound(NOW, ServerboundStream.packet(state, packetId, body, length));
+    }
+
+    /**
+     * Opens a client tick. Main thread, right after the recording player's per-tick record, whose timestamp it gets.
+     */
+    public void saveServerboundTickStart() {
+        if (serverbound == null) return;
+        serverboundTickOpen = true;
+        saveServerbound((int) lastSentPacket, ServerboundStream.tickStart());
+    }
+
+    /** Closes the open client tick with its input record. Main thread, at the end of the tick. */
+    public void saveServerboundInput(byte[] record) {
+        if (serverbound == null || !serverboundTickOpen) return;
+        serverboundTickOpen = false;
+        saveServerbound(NOW, record);
+    }
+
+    private static final int NOW = -1;
+
+    private int serverboundTime() {
+        if (serverWasPaused) {
+            // The pause is taken out of the clock at the next clientbound packet, which continues from this time.
+            return (int) lastSentPacket;
+        }
+        return (int) (System.currentTimeMillis() - startTime - timePassedWhilePaused);
+    }
+
+    private void saveServerbound(int time, byte[] record) {
+        ServerboundStream stream = serverbound;
+        // One lock for all threads, so the records are in the order they were timed.
+        synchronized (stream) {
+            int at = time == NOW ? serverboundTime() : time;
+            try {
+                saveService.submit(() -> {
+                    try {
+                        stream.write(at, record);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+            } catch (RejectedExecutionException e) {
+                // The connection has closed and the recording is being saved.
+            }
         }
     }
 
