@@ -7,4 +7,4 @@
 	url = https://github.com/ReplayMod/Translations
 [submodule "ReplayStudio"]
 	path = libs/ReplayStudio
-	url = ../ReplayStudio
+	url = https://github.com/ReplayMod/ReplayStudio

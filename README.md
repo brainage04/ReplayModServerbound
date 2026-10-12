@@ -1,8 +1,19 @@
-# ReplayMod
-A Minecraft mod to record game sessions and replay them afterwards from any perspective.
+# ReplayModServerbound
+A **modified version of [ReplayMod](https://github.com/ReplayMod/ReplayMod) 2.6.20** for Minecraft 1.8.9 (Forge 11.15.1.2318).
+ReplayMod records game sessions and replays them from any perspective; stock ReplayMod records only what the server
+sends to the client. This fork also records what the player's own client sends to the server and the player's input
+in every tick, so a recording shows what the player actually pressed.
 
-## This fork: serverbound recording (Forge 1.8.9)
-This is a modified version of ReplayMod 2.6.20 (modified 2026-10-12). On Minecraft 1.8.9 its recordings also hold
+- Based on: ReplayMod 2.6.20 (upstream tag `Release 2.6.20`, commit `50cfcbab`), unmodified apart from the changes below.
+- Changed: one commit on top of upstream (`Record serverbound packets and per-tick input on 1.8.9`): a new recording stream
+  (`ServerboundStream`, `ServerboundCapture`), four 1.8.9 mixins that feed it, small hooks in `PacketListener` and
+  `RecordingEventHandler`, the mixin config, the version (`2.6.20-serverbound.1`) and this README. Nothing else is changed;
+  only the 1.8.9 version records the extra data.
+- Licence: GNU GPL v3, as upstream (`LICENSE.md`); see "Licence" below. This repository is the corresponding source.
+- Not affiliated with the ReplayMod project. Please do not ask the ReplayMod developers for help with this fork.
+
+## What this fork records (Forge 1.8.9)
+On Minecraft 1.8.9 its recordings also hold
 everything the client sends to the server, and the client's input in every tick, in an extra zip entry
 `serverbound.tmcpr`. Everything else in a recording is what ReplayMod 2.6.20 writes, so stock ReplayMod opens,
 plays and renders these recordings and ignores the extra entry. Other Minecraft versions are not changed.
@@ -37,16 +48,25 @@ When ReplayMod's recording controls cut or split a recording (pause, split marke
 not get the entry; the unprocessed original that ReplayMod keeps in `replay_recordings/raw` has it. Edits made in the
 replay editor (trim, connect) also drop it.
 
-### Install
-Replace `replaymod-1.8.9-2.6.20.jar` in the Forge 1.8.9 instance's `mods` folder with this fork's jar (only one
-ReplayMod jar may be installed). Settings and recordings stay where they are.
+### Install (for a friend, or yourself)
+1. You need Minecraft 1.8.9 with Forge 1.8.9 (11.15.1.2318), for example a Forge 1.8.9 instance in Prism Launcher or MultiMC.
+2. Download `replaymod-1.8.9-2.6.20-serverbound.1.jar` from the [v1.0.0 release](https://github.com/brainage04/ReplayModServerbound/releases/tag/v1.0.0).
+3. Put it in the instance's `.minecraft/mods` folder. If `replaymod-1.8.9-2.6.20.jar` (the normal ReplayMod) is in there, remove it:
+   only one ReplayMod jar may be installed. Settings and existing recordings stay where they are.
+4. Start the game and record as usual (ReplayMod records automatically when you join a world or server).
+
+Recordings are saved as `.mcpr` files in `.minecraft/replay_recordings/` (the unprocessed originals ReplayMod keeps after
+cutting or splitting are in `.minecraft/replay_recordings/raw/`). They work with or without this fork: stock ReplayMod
+and the replay tools open any of them. Recordings made without this fork simply lack the player's own inputs (the packets
+the client sent and the keys held each tick).
 
 ### Licence
 ReplayMod is free software under the GNU General Public License v3 (LICENSE.md); this fork is too. ReplayStudio
-(`libs/ReplayStudio`) is under the GNU LGPL v3, jGui under the MIT licence. Whoever passes the jar on to someone else
-must also give them the complete corresponding source of this fork (this repository with its submodules and build
-scripts), for example as an archive next to the jar, keep the licence notices, and pass it on under the GPL v3 with
-no further restrictions.
+(`libs/ReplayStudio`) is under the GNU LGPL v3, jGui under the MIT licence. This public repository is the complete
+corresponding source of the released jar (clone it with `git clone --recurse-submodules`; the submodules are the
+unmodified upstream ReplayStudio, jGui and Translations at the commits recorded here); the release also carries a
+source archive of the same tree. Whoever passes the jar on to someone else must also give them that source (or this
+link), keep the licence notices, and pass it on under the GPL v3 with no further restrictions.
 
 Build the 1.8.9 jar with `./gradlew --no-daemon :1.8.9:bundleJar` (Gradle 8.7 runs on Java 17 or 21; the 1.8.9
 sources compile with a Java 8 toolchain, found through `-Porg.gradle.java.installations.paths=<JDK 8 home>`). The jar
